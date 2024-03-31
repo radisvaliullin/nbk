@@ -67,4 +67,24 @@ let writer = &mut &stream;
 So now instead of two mutable references to TCPStream we have two mutable references to references to TCPStream. Each &stream is different objects pointing to the same TCPStream object, but it is different objects so each &mut now point to a different &stream-s so we do not have twice mutable reference to the same object. But you can say is it not the same problem? In case when we have two mutable references to the same object we have a problem. If some code via one of the references modifies the object and that modification reallocates the object that code can update that reference but who will update the second reference handled by another code? But in case when we have access via two mutable references using intermediate immutable references we can not modify the object so the compiler knows there will be no problem. As I mentioned above we do not need to modify TCPStream, we need mutable reference just for matching trait constraint. Mutability and uniqueness is a broad topic and detailed review goes beyond the scope of my story.
 
 ### Some of Summary of Rust Memory Management
-This is a short summary to put one page key ideas of Rust Memory Management and its compile time correctness validation.
+This is a short summary showing key ideas of Rust Memory Management and its compile time correctness validation.
+
+Below list of some operations with memory. This is a small part of what Rust provides. But this is enough to show the main ideas.
+```rust
+let i = 42; // create int object
+let s = String::from("qwerty"); // create String object
+let icp = i; // copy
+let smv = s; // move
+let mut scl = smv.clone(); // clone
+let smvr = &smv; // immutable reference
+let smvr2 = &smv; // second immutable reference
+let sclrm = &mut scl; // mutable reference
+```
+
+To explain these operations let's first start from how in general a program code works.
+
+We start from single thread code. Program code organized with splitting to functions. Evolution of functions call follow stack model (call-stack). If we look for a timeline of that stack evolution we will get a call tree (see image below). It might look weird but if you keep in mind that each moment of time executed only the rightest branch everything will fall into place. Also look at the right bar showing only the currently executed function.
+
+<img src="data/prog_call_tree.png" alt="program call tree" width="400"/>
+
+How we see the lifetime of functions is absolutely predictable and, as is known, is controlled by the compiler. Functions manipulate data, so what about the lifetime of data used by functions?
