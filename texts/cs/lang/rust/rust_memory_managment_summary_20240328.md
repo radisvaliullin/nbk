@@ -67,7 +67,7 @@ What about the second option? Cloning works but is there a better solution? Solu
 let reader = &mut &stream;
 let writer = &mut &stream;
 ```
-So now instead of two mutable references to TCPStream we have two mutable references to references to TCPStream. Each &stream is different objects pointing to the same TCPStream object, but it is different objects so each &mut now point to a different &stream-s so we do not have twice mutable reference to the same object. But you can say is it not the same problem? No, because we have access via two mutable references using intermediate immutable references and so we can not modify the object so there is no problem for the compiler. As I mentioned above we do not need to modify TCPStream, we need mutable reference just for matching trait constraint. The TCPStream implements read/write traits for both types TCPStream and &TCPStream that is why this solution works.
+So now instead of two mutable references to `TcpStream` we have two mutable references to references to `TcpStream`. Each `&stream` is different objects pointing to the same `TcpStream` object, but it is different objects so each `&mut` now point to a different `&stream`-s so we do not have twice mutable reference to the same object. But you can say is it not the same problem? No, because we have access via two mutable references using intermediate immutable references and so we can not modify the object so there is no problem for the compiler. As I mentioned above we do not need to modify `TcpStream`, we need mutable reference just for matching trait constraint. The `TcpStream` implements read/write traits for both types `TcpStream` and `&TcpStream` that is why this solution works.
 
 ### Some of Summary of Rust Memory Management
 This is a short summary showing key ideas of Rust Memory Management and its compile time correctness validation.
@@ -76,12 +76,12 @@ Below list of some operations with memory. This is a small part of what Rust pro
 ```rust
 let a = 42; // create int object
 let s = String::from("qwerty"); // create String object
-let acp = a; // copy a
-let smv = s; // move s
-let mut scl = smv.clone(); // clone s
-let smvr = &smv; // immutable reference to s
-let smvr2 = &smv; // second immutable reference to s
-let sclrm = &mut scl; // mutable reference to clone of s (scl)
+let a2 = a; // copy a
+let s2 = s; // move s
+let mut s3 = s2.clone(); // clone s2
+let s2r = &s2; // immutable reference to s2
+let s2r2 = &s2; // second immutable reference to s2
+let s3m = &mut s3; // mutable reference to s3
 ```
 
 To explain these operations let's first start from how in general a program code works.
@@ -90,9 +90,9 @@ We start from single thread code. Program code organized with splitting to funct
 
 <img src="data/prog_call_tree.png" alt="program call tree" width="400"/>
 
-As we see the lifetime of functions is absolutely predictable and controlled by the compiler. Relations of functions lifetimes are also very straightforward. A child function's life is always shorter than parents and located inside of the parent's timeline.
+As we see the lifetime of functions is absolutely predictable and controlled by the compiler. Relations of functions lifetimes are also very straightforward. A child function's life is always shorter than parents and located inside of the parent's lifetime.
 
-Functions manipulate data, so what about the lifetime of data used by functions? For storing data the function uses abstraction of the variable. Each function has its own variables. Lifetime of variable same as lifetime of its function. We assign value (object in memory) to variables using `=` (or passing as argument to funсtion). When we do assign operations we add data to stack memory (of function). If the size of data is known at compile time we can put the entire object to stack.
+Functions manipulate data, so what about a lifetime of data used by functions? For storing data a function uses abstraction of a variable. Each function has its own variables. Lifetime of variable same as lifetime of its function. We assign value (object in memory) to variables using `=` sign. When we do assign operations we add some data to stack memory (of function). If the size of data is known at compile time we can put the entire object to stack.
 ```rust
 let a = 42;
 ```
@@ -103,3 +103,27 @@ let s = String::from("qwerty");
 Internals of each data type using the heap can vary from type to type. But we always need some data in the stack for pointing to data in the heap.
 If our data is stored only in the stack there is no problem. Compiler no need to take special action, all data in stack clean when function ends.
 If data is stored in the heap, the compiler can easily track those cases using a pointer stored in the stack and add some code to clean data in the heap when the function ends (drop trait).
+
+We want copy and/or reuse (share) data between different parts of code. 
+
+When we re-assign a variable to a new variable we make a copy of a variable's object located in the stack.
+If a variable’s value is entirely located in the stack we will get a new variable with full copy of value (Copy operation). In that case a variable's value will clean with the stack when the function ends.
+```rust
+let a2 = a; // copy a
+```
+For variables storing data in the heap we copy only the pointer structure in the stack to a new variable. So the new variable will point to the same object in the heap. To prevent the compiler from generating data clean code twice (double free issue), the compiler invalidate an old variable (can't be use more) (Move operation).
+```rust
+let s2 = s; // move s
+```
+If we want to make an independent copy of a heap object's variable we can use a clone operation (Clone). Clone will copy an object in the heap and create a new reference struct in the stack. Because now we need to clean both objects in the heap for the old and new variables the compiler will not invalidate the old variable.
+```rust
+let s3 = s2.clone(); // clone s2
+```
+
+As we see, each object in memory can be owned only by one variable at time (ownership). Ownership defines points in lifetime when we init an object (assign) and when object should be cleaned (life of variables scope end). Any manipulations with value can be only iside of that time range.
+
+When we want share object across code we use references.
+A reference is stack located structure pointing to other objects.
+```rust
+let s2r = &s2;
+```
